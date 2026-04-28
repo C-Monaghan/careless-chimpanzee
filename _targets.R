@@ -7,10 +7,18 @@ purrr::walk(list.files("R/", recursive = TRUE, full.names = TRUE), source)
 # Packages to be throughout pipeline -------------------------------------------
 tar_option_set(
   packages = c(
+    # The usual gang
     "dplyr",
-    "data.table",
+    "tidyr",
     "tibble",
     "purrr",
+    "stringr",
+
+    # Modelling
+    "nnet",
+
+    # Some extras
+    "data.table",
     "rlang",
     "future"
   )
@@ -18,26 +26,24 @@ tar_option_set(
 
 list(
   #? Setting up ----------------------------------------------------------------
-  # These are all the scenarios and number of states I want to do
+  # These are all the scenarios and number of states I want to do for the data
+  # simulation
   tar_target(
     params,
-    tidyr::crossing(
-      scenario = 1:3,
-      n_states = 3:5
-    )
+    tidyr::crossing(scenario = 1:3, n_states = 3:5)
   ),
 
-  # How many sample sizes to do in the modelling
-  tar_target(sample_size, c(100, 250, 1000, 5000)),
-
-  # How many repititions to do in the modelling
-  tar_target(rep, seq_len(50)),
+  # This is the design for the modelling
+  tar_target(
+    model_design,
+    tidyr::crossing(sample_size = c(100, 250), rep = seq_len(5))
+  ),
 
   #* Apply simulation function over each row of params -------------------------
   tar_target(
     sim_data,
     simulate_data(
-      n_subjects = 10000,
+      n_subjects = 1000,
       n_waves = 3,
       scenario = params$scenario,
       n_states = params$n_states,
@@ -55,50 +61,40 @@ list(
     iteration = "list"
   ),
 
-  #* Extract IDs from simulated data -------------------------------------------
   tar_target(
-    sim_ids,
-    unique(sim_data_prev$ID),
-    pattern = map(sim_data_prev),
-    iteration = "list"
-  ),
-
-  #* Split datasets into training and test (80 / 20 split) ---------------------
-  tar_target(
-    data_split,
-    sim_ids |> unique() |> split_ids(prop = 0.2),
-    pattern = map(sim_ids),
-    iteration = "list"
-  ),
-
-  #* Replicate each of the datasets --------------------------------------------
-  tar_target(
-    sampled_data,
+    analysis_data,
     {
-      # Get the training IDS
-      train_ids <- data_split$train
-
-      # Sample a sequence of them based off the overall sample size
-      sampled_ids <- sample(train_ids, size = sample_size, replace = FALSE)
-
-      # Get the associated data
-      sim_data_prev[sim_data_prev$ID %in% sampled_ids, ]
+      list(data = sim_data_prev, ids = unique(sim_data_prev$ID))
     },
-    pattern = cross(sim_data_prev, data_split, sample_size, rep),
+    pattern = map(sim_data_prev)
+  ),
+
+  #* Fit Markov models ---------------------------------------------------------
+  tar_target(
+    models,
+    run_markov_model(
+      data = sim_data_prev,
+      sample_size = model_design$sample_size,
+      rep = model_design$rep,
+      seed = 123
+    ),
+    pattern = cross(sim_data_prev, model_design),
+    iteration = "list"
+  ),
+
+  #* Calculate predicted probabilities -----------------------------------------
+  tar_target(
+    predicted_probs,
+    calculate_predicted_probs(models),
+    pattern = map(models),
+    iteration = "list"
+  ),
+
+  #* Now I wanted to flatten each of these predictions -------------------------
+  tar_target(
+    flatten_preds,
+    flatten_predictions(predicted_probs),
+    pattern = map(predicted_probs),
     iteration = "list"
   )
-
-  #* Step 3: Fit the markov models over all datasets ---------------------------
-  # tar_target(
-  #   models,
-  #   fit_markov_model(
-  #     data = sim_data_prev,
-  #     sample_sizes = c(100, 250, 1000, 5000),
-  #     n_reps = 5,
-  #     parallel = FALSE,
-  #     seed = 7140 + params$scenario * 10 + params$n_states
-  #   ),
-  #   pattern = map(sim_data_prev),
-  #   iteration = "list"
-  # )
 )
