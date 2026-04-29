@@ -101,6 +101,8 @@ simulate_data <- function(
   list(
     data = data,
     betas = betas,
-    pi_values = pi_df
+    pi_values = pi_df,
+    scenario = scenario,
+    n_states = n_states
   )
 }

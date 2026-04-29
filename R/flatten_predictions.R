@@ -1,4 +1,4 @@
-flatten_predictions <- function(predictions) {
+flatten_predictions <- function(model) {
   imap_dfr(predictions, function(by_sub_block, parent) {
     imap_dfr(by_sub_block, function(mat, sub_block) {
       mat_names <- names(mat)

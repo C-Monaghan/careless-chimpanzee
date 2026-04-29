@@ -3,8 +3,11 @@ calculate_predicted_probs <- function(model) {
   # do is extract it
   test_data <- model |> pluck("test_data")
 
+  # Additionally I need the meta data from each model too
+  meta <- model |> pluck("meta")
+
   # Now I need to figure out how many states is within this dataset
-  n_states <- test_data |> pull(y) |> unique() |> length()
+  n_states <- test_data |> pull(y) |> n_distinct()
 
   # Now we can create the augmented dataset with the correct amount of states
   augmented_data <- create_augmented_data(data = test_data, n_states = n_states)
@@ -17,8 +20,8 @@ calculate_predicted_probs <- function(model) {
   # Apply these predictions over all the models within one target --------------
   model |>
     pluck("models") |>
-    imap(function(model_group, parent_block) {
-      imap(model_group, function(betas, sub_block) {
+    imap_dfr(function(model_group, parent_block) {
+      imap_dfr(model_group, function(betas, sub_block) {
         # Calculate probabilities ----------------------------------------------
         probs <- make_predictions(mod = betas)
 
@@ -52,19 +55,22 @@ calculate_predicted_probs <- function(model) {
         matrix_names <- paste0("ID_", id_wave_names, "_", wave_labels)
 
         # Now we can build the matrics
-        matrices <- setNames(
-          lapply(split_rows, function(rows) {
-            matrix(
-              probs[rows, ],
-              nrow = n_states,
-              ncol = n_states,
-              byrow = FALSE
-            )
-          }),
-          matrix_names
-        )
+        matrices <- map(split_rows, function(rows) {
+          matrix(probs[rows, ], nrow = n_states, ncol = n_states, byrow = FALSE)
+        })
 
-        return(matrices)
-      })
-    })
+        # Now I can turn this into a nice little tibble
+        tibble::tibble(
+          ID = id_wave_names,
+          wave = wave_labels,
+          parent_block = parent_block,
+          sub_block = sub_block,
+          scenario = meta$scenario,
+          n_states = meta$n_states,
+          sample_size = meta$sample_size,
+          rep = meta$rep,
+          sim_mat = matrices,
+        )
+      }) # End of inner imap
+    }) # End of outer imap
 }

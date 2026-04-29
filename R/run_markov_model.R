@@ -1,4 +1,11 @@
-run_markov_model <- function(data, sample_size, rep, seed = 1) {
+run_markov_model <- function(
+  data,
+  sample_size,
+  rep,
+  scenario,
+  n_states,
+  seed = 1
+) {
   # Setting unique seed for each target
   set.seed(seed + rep)
 
@@ -24,6 +31,12 @@ run_markov_model <- function(data, sample_size, rep, seed = 1) {
   list(
     models = models,
     test_data = test_data,
-    indv_trans = indv_trans
+    indv_trans = indv_trans,
+    meta = list(
+      scenario = scenario,
+      n_states = n_states,
+      sample_size = sample_size,
+      rep = rep
+    )
   )
 }
