@@ -4,6 +4,9 @@ library(tarchetypes)
 # Functions to be used ---------------------------------------------------------
 purrr::walk(list.files("R/", recursive = TRUE, full.names = TRUE), source)
 
+# We'll be using a C ++ function to handle the matrix calculations
+Rcpp::sourceCpp(here::here("C/compare_matrices.cpp"))
+
 # Packages to be throughout pipeline -------------------------------------------
 tar_option_set(
   packages = c(
@@ -19,11 +22,13 @@ tar_option_set(
 
     # Some extras
     "data.table",
-    "rlang",
-    "future"
-  )
+    "rlang"
+  ),
+  format = "qs"
+  # controller = crew::crew_controller_local(workers = 9)
 )
 
+#* Beginning of targets pipeline
 list(
   #? Setting up ----------------------------------------------------------------
   # These are all the scenarios and number of states I want to do for the data
@@ -36,14 +41,17 @@ list(
   # This is the design for the modelling
   tar_target(
     model_design,
-    tidyr::crossing(sample_size = c(100, 250), rep = seq_len(5))
+    tidyr::crossing(
+      sample_size = c(100, 250),
+      rep = seq_len(2)
+    )
   ),
 
   #* Apply simulation function over each row of params -------------------------
   tar_target(
     sim_data,
     simulate_data(
-      n_subjects = 1000,
+      n_subjects = 10000,
       n_waves = 3,
       scenario = params$scenario,
       n_states = params$n_states,
@@ -56,24 +64,28 @@ list(
   #* Create a previous y column in the data ------------------------------------
   tar_target(
     sim_data_prev,
-    sim_data |> pluck("data") |> add_previous_status(),
+    {
+      data <- sim_data |> pluck("data") |> add_previous_status()
+
+      list(
+        data = data,
+        meta = list(
+          scenario = sim_data$scenario,
+          n_states = sim_data$n_states
+        )
+      )
+    },
     pattern = map(sim_data),
     iteration = "list"
   ),
 
+  #* Run the Markov pipeline ---------------------------------------------------
   tar_target(
-    analysis_data,
-    {
-      list(data = sim_data_prev, ids = unique(sim_data_prev$ID))
-    },
-    pattern = map(sim_data_prev)
-  ),
-
-  #* Fit Markov models ---------------------------------------------------------
-  tar_target(
-    models,
-    run_markov_model(
-      data = sim_data_prev,
+    distances,
+    run_markov_pipeline(
+      data = sim_data_prev$data,
+      scenario = sim_data_prev$meta$scenario,
+      n_states = sim_data_prev$meta$n_states,
       sample_size = model_design$sample_size,
       rep = model_design$rep,
       seed = 123
@@ -82,19 +94,9 @@ list(
     iteration = "list"
   ),
 
-  #* Calculate predicted probabilities -----------------------------------------
+  #* Finally I want to combine these together in a nice scenario × state format
   tar_target(
-    predicted_probs,
-    calculate_predicted_probs(models),
-    pattern = map(models),
-    iteration = "list"
-  ),
-
-  #* Now I wanted to flatten each of these predictions -------------------------
-  tar_target(
-    flatten_preds,
-    flatten_predictions(predicted_probs),
-    pattern = map(predicted_probs),
-    iteration = "list"
+    final_data,
+    distances |> bind_rows() |> group_by(scenario, n_states) |> nest()
   )
 )
