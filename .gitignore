@@ -1,1 +1,6 @@
+# What I don't want on github
 _targets/
+.Rproj.user
+analysis/
+*.Rproj
+run_targets.R
