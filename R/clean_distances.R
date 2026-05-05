@@ -1,7 +1,23 @@
 clean_distances <- function(distances) {
+  
+  # Again, assuring that all the columns are present because of some random
+  # parallel errors
+  metric_cols <- c(
+    "Frobenius", "Manhattan", "Max",
+    "MeanAbs", "RMSE", "Correlation", "KL"
+  )
+  
   distances |>
-    pivot_wider(names_from = metric, values_from = value) |>
-    pivot_longer(cols = c(aic:KL), names_to = "metric", values_to = "value") |>
+    pivot_wider(
+      names_from = metric, 
+      values_from = value, 
+      values_fill = NA_real_
+      ) |>
+    pivot_longer(
+      cols = any_of(c("aic", "bic", metric_cols)), 
+      names_to = "metric", 
+      values_to = "value"
+      ) |>
     mutate(
       # Cleaning column names
       wave = str_replace(wave, "-", " to "),

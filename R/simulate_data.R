@@ -5,6 +5,8 @@ simulate_data <- function(
   n_states = 3,
   seed = NULL
 ) {
+  set.seed(seed)
+  
   # Generate beta values used in probability calculations
   # TODO: I'm not sure this works properly right now (investigate)
   betas <- generate_betas(n_states, scenario)
@@ -87,12 +89,12 @@ simulate_data <- function(
 
   data <- dplyr::bind_rows(panel)
 
-  # factorise
+  # Factorise
   data$y <- factor(data$y, levels = 1:n_states)
   data$w <- factor(data$w)
   data$x1 <- factor(data$x1)
 
-  # probabilities
+  # Probabilities
   pi_mat <- do.call(rbind, probs_store)
   colnames(pi_mat) <- paste0("pi_", 1:n_states)
 
