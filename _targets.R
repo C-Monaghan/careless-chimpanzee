@@ -24,8 +24,10 @@ tar_option_set(
     "data.table",
     "rlang"
   ),
-  format = "qs"
-  # controller = crew::crew_controller_local(workers = 9)
+  format = "qs",
+  controller = crew::crew_controller_local(
+    workers = parallel::detectCores() - 1
+    )
 )
 
 #* Beginning of targets pipeline
@@ -43,7 +45,7 @@ list(
     model_design,
     tidyr::crossing(
       sample_size = c(100, 250),
-      rep = seq_len(2)
+      rep = seq_len(50)
     )
   ),
 
