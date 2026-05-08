@@ -44,8 +44,8 @@ list(
   tar_target(
     model_design,
     tidyr::crossing(
-      sample_size = c(100, 250),
-      rep = seq_len(50)
+      sample_size = c(100, 250, 500, 1000, 5000),
+      rep = seq_len(200)
     )
   ),
 

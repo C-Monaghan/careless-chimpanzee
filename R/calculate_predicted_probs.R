@@ -24,52 +24,21 @@ calculate_predicted_probs <- function(model) {
       imap_dfr(model_group, function(betas, sub_block) {
         # Calculate probabilities ----------------------------------------------
         probs <- make_predictions(mod = betas)
-
-        # TODO: need to make this fully generalisable --------------------------
-        # Now we need to reshape these into nice little matrices
-        ids <- unique(augmented_data$ID)
-
-        # This is the number of possible states we could have
-        # → should range from 3 - 5
-        n_states <- ncol(probs)
-
-        # This is the number of possible waves in the data
-        # → ideally this should always be 2 but maybe I'll end up doing more
-        # longitudinal data
-        n_waves <- augmented_data$w |> unique() |> length()
-
-        # Split these probabilities into blocks
-        split_rows <- split(
-          seq_len(nrow(probs)),
-          ceiling(seq_along(seq_len(nrow(probs))) / n_states)
-        )
-
-        # Now we need to better name these blocks
-        id_wave_names <- rep(ids, each = n_waves)
-
-        wave_labels <- rep(
-          paste0(seq_len(n_waves), "-", seq_len(n_waves) + 1),
-          times = length(ids)
-        )
-
-        matrix_names <- paste0("ID_", id_wave_names, "_", wave_labels)
-
-        # Now we can build the matrics
-        matrices <- map(split_rows, function(rows) {
-          matrix(probs[rows, ], nrow = n_states, ncol = n_states, byrow = FALSE)
-        })
+        
+        # Build the individual matrices
+        matrices_df <- build_matrices(probs, augmented_data, n_states)
 
         # Now I can turn this into a nice little tibble
-        tibble::tibble(
-          ID = id_wave_names,
-          wave = wave_labels,
+        tibble(
+          ID = matrices_df$ID,
+          wave = matrices_df$wave,
           parent_block = parent_block,
           sub_block = sub_block,
           scenario = meta$scenario,
           n_states = meta$n_states,
           sample_size = meta$sample_size,
           rep = meta$rep,
-          sim_mat = matrices,
+          sim_mat = matrices_df$sim_mat
         )
       }) # End of inner imap
     }) # End of outer imap
