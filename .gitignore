@@ -2,11 +2,12 @@
 # Random R stuff
 .Rproj.user
 *.Rproj
+.Rhistory
 
 # Folders
 _targets/
 analysis/
-arrow_datasets
+arrow_distances/
 
 # Scripts
 run_targets.R
