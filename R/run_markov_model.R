@@ -25,8 +25,8 @@ run_markov_model <- function(
   # Fit all the markov models
   models <- fit_markov(train_sample)
 
-  # Calculate the idividual transition matrices on the test data
-  indv_trans <- create_individual_transition_matrices(test_data)
+  # Calculate the individual transition matrices on the test data
+  indv_trans <- create_individual_transition_matrices_fast(test_data)
 
   list(
     models = models,

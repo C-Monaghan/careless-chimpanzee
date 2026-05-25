@@ -24,7 +24,7 @@ fit_markov <- function(train_data) {
   )
 
   fit_one <- function(formula) {
-    nnet::multinom(formula, data = train_data, trace = FALSE)
+    nnet::multinom(formula, data = train_data, trace = FALSE, Hess = FALSE)
   }
 
   list(

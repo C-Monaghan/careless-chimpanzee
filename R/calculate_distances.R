@@ -11,7 +11,7 @@ calculate_distances <- function(transitions) {
     
     # Apply C++ function
     res <- tryCatch(
-      compare_matrices_slow(Obs = obs, Sim = sim),
+      compare_matrices_rcpp(Obs = obs, Sim = sim),
       error = function(e) {
         message(sprintf("Error in row %d: %s", i, e$message))
         
