@@ -1,8 +1,9 @@
+# Packages ---------------------------------------------------------------------
 library(targets)
 library(tarchetypes)
 
 # Functions to be used ---------------------------------------------------------
-purrr::walk(list.files("R/", recursive = TRUE, full.names = TRUE), source)
+targets::tar_source(files = "R")
 
 # We'll be using a C ++ function to handle the matrix calculations
 Rcpp::sourceCpp(here::here("C/compare_matrices.cpp"))
@@ -24,11 +25,10 @@ tar_option_set(
     "data.table",
     "rlang"
   ),
+  memory = "transient",
+  garbage_collection = TRUE,
   format = "qs",
-  controller = crew::crew_controller_local(
-    workers = parallel::detectCores() - 1
-    )
-)
+  )
 
 #* Beginning of targets pipeline
 list(
@@ -44,8 +44,8 @@ list(
   tar_target(
     model_design,
     tidyr::crossing(
-      sample_size = c(100, 250, 500, 1000, 5000),
-      rep = seq_len(200)
+      sample_size = c(100, 250, 500, 1000),
+      rep = seq_len(100)
     )
   ),
 
@@ -53,7 +53,7 @@ list(
   tar_target(
     sim_data,
     simulate_data(
-      n_subjects = 10000,
+      n_subjects = 5000,
       n_waves = 3,
       scenario = params$scenario,
       n_states = params$n_states,
@@ -84,21 +84,45 @@ list(
   #* Run the Markov pipeline ---------------------------------------------------
   tar_target(
     distances,
-    run_markov_pipeline(
-      data = sim_data_prev$data,
-      scenario = sim_data_prev$meta$scenario,
-      n_states = sim_data_prev$meta$n_states,
-      sample_size = model_design$sample_size,
-      rep = model_design$rep,
-      seed = 123
-    ),
+    {
+      # Run the pipeline
+      results <- run_markov_pipeline(
+        data = sim_data_prev$data,
+        scenario = sim_data_prev$meta$scenario,
+        n_states = sim_data_prev$meta$n_states,
+        sample_size = model_design$sample_size,
+        rep = model_design$rep,
+        seed = 123
+      )
+      
+      # I need to remove the n in the sample size column to get correct 
+      # partitioning of the results
+      results <- results |>
+        mutate(sample_size_label = stringr::str_remove(sample_size, "n = "))
+      
+      # Write the data to a set of files
+      arrow::write_dataset(
+        results,
+        path = "arrow_distances",
+        format = "parquet",
+        partitioning = c("scenario", "n_states", "sample_size_label", "rep"),
+        existing_data_behavior = "overwrite"
+      )
+      
+      return("arrow_distances")
+    },
     pattern = cross(sim_data_prev, model_design),
-    iteration = "list"
-  ),
+    iteration = "list",
+    format = "file",
+  )
+  
+  # Everything above takes 2 days 9hrs and 22mins to run
+  # I cannot run the bottom code without using all the server memory
+  # Need to think about that one ... 
 
   #* Finally I want to combine these together in a nice scenario × state format
-  tar_target(
-    final_data,
-    distances |> bind_rows() |> group_by(scenario, n_states) |> nest()
-  )
+  # tar_target(
+  #   final_data,
+  #   distances |> bind_rows() |> group_by(scenario, n_states) |> nest()
+  # )
 )

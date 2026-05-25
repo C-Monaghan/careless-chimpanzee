@@ -1,6 +1,12 @@
 # What I don't want on github
-_targets/
+# Random R stuff
 .Rproj.user
-analysis/
 *.Rproj
+
+# Folders
+_targets/
+analysis/
+arrow_datasets
+
+# Scripts
 run_targets.R
