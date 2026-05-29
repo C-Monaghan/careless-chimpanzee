@@ -3,7 +3,7 @@ library(targets)
 library(tarchetypes)
 
 # Functions to be used ---------------------------------------------------------
-targets::tar_source(files = "R")
+tar_source(files = "R")
 
 # We'll be using a C ++ function to handle the matrix calculations
 Rcpp::sourceCpp(here::here("C/compare_matrices.cpp"))
@@ -116,13 +116,5 @@ list(
     format = "file",
   )
   
-  # Everything above takes 2 days 9hrs and 22mins to run
-  # I cannot run the bottom code without using all the server memory
-  # Need to think about that one ... 
-
-  #* Finally I want to combine these together in a nice scenario × state format
-  # tar_target(
-  #   final_data,
-  #   distances |> bind_rows() |> group_by(scenario, n_states) |> nest()
-  # )
+  # Everything above takes 2 days 10hrs and 23mins to run
 )
